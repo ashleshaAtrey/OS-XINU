@@ -1,0 +1,112 @@
+#include <conf.h>
+#include<lock.h>
+#include <kernel.h>
+#include <proc.h>
+#include <q.h>
+#include <sem.h>
+#include <stdio.h>
+int releaseall(int numlocks,int descriptors){
+
+STATWORD ps;
+register struct lentry  *lptr;
+struct  pentry  *pptr,*optr,*nptr;
+disable(ps);
+int   *a;             /* points to list of args       */
+pptr = &proctab[currpid];
+int flag=0;
+a = (int *)(&descriptors) + (numlocks-1); /* last argument      */
+        for ( ; numlocks > 0 ; numlocks--){   /* machine dependent; copy args */
+		lptr = &lcks[*a];
+		int pi=0,x=0,prev=0,set=0;
+		char pstat;
+		int prio_writer=0;
+		long waittime_writer=0;
+        	if (isbadl(*a) || lptr->lstate==LFREE && pptr->loc[*a][0] != PLOCK) {
+           	flag=1;     
+		}
+		if(lptr->acqby==READ){
+			lptr->rcnt-=1;
+			if(lptr->rcnt==0){
+				prev = q[lptr->lqtail].qprev;
+				if(prev!=lptr->lqhead){
+					optr = &proctab[ (pi = getlast(lptr->lqtail)) ];
+        				optr->pstate = PRREADY;
+					lptr->acqby=WRITE;							
+					}
+				else
+					lptr->acqby=NOONE;
+			}
+			
+		}
+		else{
+			prev=q[lptr->lqtail].qprev;
+			if(prev!=lptr->lqhead){
+				optr=&proctab[prev];
+				pstat=optr->loc[*a][2];
+				if(pstat==WRITE){
+					prio_writer=optr->loc[*a][1];
+                                        waittime_writer=lptr->waittime[prev];
+					prev=q[prev].qprev;
+					while(prev!=lptr->lqhead){
+                                                optr=&proctab[prev];
+                                                if(optr->loc[*a][1]==prio_writer && optr->loc[*a][2]==READ && (500+lptr->waittime[prev])<waittime_writer){
+                                                	nptr = &proctab[ (pi = getlast(q[prev].qnext))];
+                                                        nptr->pstate = PRREADY;
+                                                        prev=q[prev].qprev;
+							set=1;
+							lptr->acqby=READ;	
+						}
+						prev=q[prev].qprev;
+					}
+					if(set==0){
+						optr = &proctab[(pi = getlast(lptr->lqtail))];
+                                        	optr->pstate = PRREADY;
+						lptr->acqby=WRITE;
+					}
+				}
+				else{
+					nptr = &proctab[ (pi = getlast(lptr->lqtail)) ];
+                                        nptr->pstate = PRREADY;
+					prev=q[prev].qprev;
+					lptr->acqby=READ;
+					while(prev!=lptr->lqhead){
+						optr=&proctab[prev];
+						pstat=optr->loc[*a][2];
+						if(pstat==READ){
+							nptr = &proctab[ (pi = getlast(lptr->lqtail))];
+                                        		nptr->pstate = PRREADY;
+							prev=q[prev].qprev;
+                   				}
+						else{
+							prio_writer=optr->loc[*a][1];
+							waittime_writer=lptr->waittime[prev];
+							prev=q[prev].qprev;
+							while(prev!=lptr->lqhead){
+								optr=&proctab[prev];
+								if(optr->loc[*a][1]==prio_writer && optr->loc[*a][2]==READ && (500+lptr->waittime[prev])<waittime_writer){
+									nptr = &proctab[ (pi = getlast(q[prev].qnext))];
+		                                                        nptr->pstate = PRREADY;
+								}
+								prev=q[prev].qprev;
+							}
+						}	
+	
+					}
+					
+				}
+			}
+			else{
+				lptr->acqby=NOONE;
+			}
+		}
+	*a--;
+	}
+	if(flag==1){
+		restore(ps);
+                return(SYSERR);
+	}	
+	else{
+		restore(ps);
+		return(OK);
+	}
+}

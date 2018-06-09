@@ -1,0 +1,67 @@
+Ashlesha Atrey
+amatrey(200203500)
+-------------------------------------
+Question 1: 
+What are the advantages and disadvantages of each of the two scheduling policies? 
+Also, give the advantages and disadvantages of the round robin scheduling policy originally implemented in Xinu. 
+Answer:
+--------
+Random scheduler:
+Advantage:
+1.Comutational and memory overhead are less. 
+2.Easy to implement.
+3.The probability of choosing a specific process will be proportional to its priority. 
+
+Disadvantage: 
+1.There are high chances of starvation of one process if difference in priority values is more.
+For example, two processes are running with priorities 1 and 100, their is only 1% probabitly that random value generated is below 1.
+Hence that process has high risk of starvation.
+
+Linux Scheuler:
+Advantage: 
+1.There is 0% chances of starvation of a process as each process gets at least some time in one epoch. 
+2.The concept of goodness brings fairness to linux type of scheduler, sceduling the process with higher priority for longer time as well
+as giving each process at least some time to run within one epoch.
+3. If a process doesn't need the allocated time in one epoch the time is carry forward in the next epoch.
+Disadvantage:
+1.CPU overhead is more.
+2.Memory overhead is more.
+3.Code is complex compared to others.
+4.The process which are newly created have to wait till the end of epoch to get a chance to run.
+If number of processes in ready queue are more, the epoch will be more and the higest priority process will have to wait longer to get a turn.
+
+Defualt Xinu priority based scheduler:
+Advantage:
+1. Memory overhead is less compared to others.
+2. CPU overhead is less compared to others.
+3. Code is simple and easy to implement.
+4. Processes in ready queue with highest priority gets scheduled instantly, dont have to wait for epoch to end.
+5. Processes which have highest and same priority gets schedule in round robin fashion, hence giving fairness to equal priority processes.
+Disadvantage:
+1.There is starvation produced when two or more processes are ready to run with differnet priorities.
+In this case the highest priority processes will keep on running and other processes will be held up indefinitely till the highest priority process will be over.
+
+----------------------------------------------------------------------------------------------------------------------------------
+Question 2: 
+Assume that there are three processes P1, P2, P3 that will run forever without blocking. 
+We want to allocate the following CPU times to each of them: 20% to P1, 30% to P2, and 50% to P3. 
+Which priorities do we need to set to P1, P2, and P3 to accomplish this if we want to use the Random scheduler? 
+Assume that those processes are the only ones running in the machine. Could you give a generalization of your result to n processes? Explain.
+Answer:
+--------
+In this case we will give P1=20, P2=30 and P3=50. 
+The random number is chosen between 0 to the sum of all the priority.
+The generalized formula will be: (Priority)i= (xi*100*totalcputime)/(x1+ x2+....+xi+..+ xn)*totalcputime= % cup time
+where i is the process we are assigning the priority.
+n =number of processes.
+x=%cpu time assign
+----------------------------------------------------------------------------------------------------------------------------------
+Question3:
+Describe the way each of the schedulers affects the NULL process. 
+Answer:
+--------
+All the scheduler have a similar way of handling the NULLL process. When there no process in ready and current state NULL process is scheduled to run.
+In Xinu based, when all the processes have finished executing, NULL will be scheduled.
+In random based process, NULL is only scheduled when all the process in ready queue are finished executing.
+Similarly in linux based scheduler, when there are no process in ready queue or currently running, NULL will execute.
+--------------------------------------------------------------------------------------------------------------------------------------

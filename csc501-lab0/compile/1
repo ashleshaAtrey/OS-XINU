@@ -1,0 +1,9 @@
+
+.section .text
+.global zfunction
+
+zfunction:
+	movl 4(%ebp), %eax
+	//and $0xFFC01FFF, %eax
+	//shl $0x4, %eax
+	ret

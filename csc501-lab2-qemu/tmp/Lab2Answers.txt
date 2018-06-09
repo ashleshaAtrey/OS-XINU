@@ -1,0 +1,69 @@
+1. The priority inversion problem could cause that a higher-priority process needs to wait for the completion of a lower-priority process.
+1.1 Priority inheritance is one approach to address this issue. Please give another approach and briefly describe its idea.
+Answer:
+Another approch is to use method called priority ceiling protocol. This approch basically assigns a priority with a resource. This priority is equal to the highest priority of any task 
+which may lock the resource. This priority will now be assigned to the process which is using this resource. 
+When the process releases this resource, its priority is set back to its original priority.
+Hence when the process which has acquired the resource will have the highest priority.
+Reference: http://en.wikipedia.org/wiki/Priority_ceiling_protocol 
+
+1.2. Design a test case to show that your approach can address the priority inversion problem.
+You should compare the results that derived from the original XINU implementation (use semaphore) and that derived from your implementation (use readers/writer locks).
+Put your results in Lab2Answers.txt and your test case program (name it task1.c) in both ./sys and ./TMP
+Answer:
+Original xinu semaphore doesn't handle priority inversion problem. If lower priority process acquires the semaphore, then the other processes which want the same semaphore though 
+having higher priority will still be requried to wait. 
+We are taking care of this problem by using priority inheritance. The lower priority process will inherit the maximum priority in the waiting queue of that lock. 
+Lets consider three processes with process priority 10,20 and 30 respectively. Lets say we have one lock and it is first acquired by writer1 which has the lowest priority among them. 
+Then we resume two processes of priority higher priority(writer 2 and reader 1). We can see writer 1 first has priority 10. After resuming writer 2, writer 2 goes in the queue.
+Hence writer 1 inherits this priority(20). Similarly after resuming reader 1, writer 1 acquires priority 30. Hence it makes sure the process which is holding the resource lock gets
+maximum priority which is in waiting queue of that lock. 
+But in semaphore implementation we can see that the process which is holding the semaphore always have a constant process scheduling priority. Hence the higher priority processes will have
+to wait till the lower priority process finish executing.
+
+Output of task1.c
+ PRIORITY INVERSION WITH LOCK
+Start Writer 1, then sleep 1s
+  writer 1: to acquire lock
+  writer 1: acquired lock, sleep 5
+Priority of writer 1 is 10 Start Writer 2, then sleep 1s
+  writer 2: to acquire lock
+Priority of writer 1 is 20 Start reader1, then sleep 1s
+  reader 1: to acquire lock
+Priority of writer 1 is 30   writer 1: to release lock
+prev is 254  reader 1: acquired lock, sleep 5s
+  reader 1: to release lock
+  writer 2: acquired lock, sleep 5
+  writer 2: to release lock
+LOCK TEST DONE !
+ PRIORITY INVERSION WITH SEMAPHORE 
+Start Writer 1, then sleep 1s
+  writer 1: to acquire sem
+  writer 1: acquired sem 
+Priority of writer 1 is 10 Start Writer 2, then sleep 1s
+  writer 2: to acquire sem
+Priority of writer 1 is 10 Start Reader 1, then sleep 1s
+  reader 1: to acquire sem
+Priority of writer 1 is 10   writer 1: to release sem
+  writer 2: acquired sem 
+SEMAPHORE DONE ! 
+  writer 2: to release sem
+  reader 1: acquired sem 
+  reader 1: to release sem
+
+2.Synchronization is a quite complex issue in operating systems. 
+To show your understanding about process synchronization, you are asked to point out a reader/writer synchronization issue in this pesudo-code: task2_sync_issue.c.
+Multiple reader threads can execute this code concurrently by calling do_update. All the variables starting with global_ are global variables.
+You are asked to describe the potential issue caused by the incorrect synchronization and point out at least one possible thread interleaving that would trigger the problem. 
+Put your answer in Lab2Answers.txt mentioned above.
+Answer:
+The proper scenario I beleive is whether it is reader or writer, they should be able to enter try_update. But only one should be able to write to buffer. 
+In the pesudo code, they have use lock to enter try_update. The lock is not global. So basically all the readers or writers are getting unique locks and hence are able to enter try_update.
+So for proper implementation, it will be better to use global counting semaphore insted of just locks. Using global counting semaphore, it will ensure only that many reader or writers can
+enter into try_update.
+In the try_update they have used counting semaphores to enter into buffer, which i believe is wrong. For proper implementation we want only one writer to update the buffer at a time.
+Use of counting semaphore will defeat that purpose. Instead global locks should be used. This will restrict only one writer to access the buffer at a time. If multiple writers tried to change 
+the buffer simultaneously we will get the wrong output. Hence global locks will stop this from happening. 
+	
+
+

@@ -1,0 +1,283 @@
+/* resched.c  -  resched */
+
+#include <conf.h>
+#include <kernel.h>
+#include <proc.h>
+#include <q.h>
+#include <stdio.h>
+
+unsigned long currSP;	/* REAL sp of current process */
+extern int ctxsw(int, int, int, int);
+/*-----------------------------------------------------------------------
+ * resched  --  reschedule processor to highest priority ready process
+ *
+ * Notes:	Upon entry, currpid gives current process id.
+ *		Proctab[currpid].pstate gives correct NEXT state for
+ *			current process if other than PRREADY.
+ *------------------------------------------------------------------------
+ */
+
+
+int resched1()
+{
+	register struct	pentry	*optr;	/* pointer to old process entry */
+	register struct	pentry	*nptr;	/* pointer to new process entry */
+
+	/* no switch needed if current process priority higher than next*/
+
+	if ( ( (optr= &proctab[currpid])->pstate == PRCURR) &&
+	   (lastkey(rdytail)<optr->pprio)) {
+		return(OK);
+	}
+	
+	/* force context switch */
+
+	if (optr->pstate == PRCURR) {
+		optr->pstate = PRREADY;
+		insert(currpid,rdyhead,optr->pprio);
+	}
+
+	/* remove highest priority process at end of ready list */
+
+	nptr = &proctab[ (currpid = getlast(rdytail)) ];
+	nptr->pstate = PRCURR;		/* mark it currently running	*/
+#ifdef	RTCLOCK
+	preempt = QUANTUM;		/* reset preemption counter	*/
+#endif
+	
+	ctxsw((int)&optr->pesp, (int)optr->pirmask, (int)&nptr->pesp, (int)nptr->pirmask);
+	
+	/* The OLD process returns here when resumed. */
+	return OK;
+}
+
+int resched_RANDOM()
+{
+	register struct pentry  *optr;  /* pointer to old process entry */
+        register struct pentry  *nptr;  /* pointer to new process entry */
+
+
+	int     next;                   /* runs through list            */
+        int     prev;
+	int     key_sum;
+	key_sum=0;
+	int prob;
+	int mypid;
+	optr= &proctab[currpid];
+	if (optr->pstate == PRCURR) {
+                optr->pstate = PRREADY;
+                insert(currpid,rdyhead,optr->pprio);
+        }
+	else
+	{
+	//	getlast(q[currpid].qnext);	
+	//kprintf("********************************%c***********\n",proctab[currpid].pstate);
+	return OK;
+	}
+        prev = q[rdytail].qprev;
+	while (prev != rdyhead)
+	{
+		key_sum= key_sum+ q[prev].qkey;
+		prev = q[prev].qprev;
+	}	
+	if (key_sum!=0)
+	prob=rand() % key_sum ;
+	else
+	return OK;
+	
+	int pp=prob;
+	
+	prev = q[rdytail].qprev;
+	while (prev != rdyhead)
+	{
+		printf("%d->",prev);
+		if (q[prev].qkey > prob)
+		{ 
+		
+		nptr = &proctab[ (currpid = getlast(q[prev].qnext)) ]; 
+		kprintf("  %d, %d %s\n ", pp,currpid, proctab[currpid].pname);
+		
+        	nptr->pstate = PRCURR; 
+		#ifdef  RTCLOCK
+        	preempt = QUANTUM;              /* reset preemption counter     */
+		#endif
+
+        	ctxsw((int)&optr->pesp, (int)optr->pirmask, (int)&nptr->pesp, (int)nptr->pirmask);
+        	return OK;
+ 	
+		}
+		else 
+		{
+		 prob= prob - q[prev].qkey;
+		 prev = q[prev].qprev;
+		}	
+	}
+kprintf("Not exiting");	
+}
+
+int resched()
+{
+        register struct pentry  *optr;  // pointer to old process entry */
+        register struct pentry  *nptr;  // pointer to new process entry */
+        /* add the current process to ready queue */
+	optr= &proctab[currpid];
+	 
+	optr->goodness = optr->oldprio + preempt;
+	if (proctab[currpid].pstate==PRFREE)
+	{
+	optr->goodness = optr->pprio;
+	optr->quantum=0;
+	optr->counter=0;
+	}
+	if (currpid==0)
+		optr->quantum=0;
+	else optr->quantum= preempt;
+
+int newepoch=0;
+int num=0;
+int prev=0;
+int maxgoodness=0;
+int i=0;
+int var=0;
+int flag=0;
+	prev = q[rdytail].qprev;
+	while(prev != rdyhead)
+	{
+	proctab[prev].goodness= proctab[prev].quantum + proctab[prev].oldprio;
+	if (proctab[prev].goodness > maxgoodness && proctab[prev].quantum !=0 && proctab[prev].counter!=0)
+		{
+		flag=1;
+		maxgoodness= proctab[prev].goodness;
+		var=prev;
+//		kprintf("Calculating new goodness for same epoch");
+		}
+//f (proctab[prev].quantum==0)
+//
+//ewepoch++;
+//
+//um++;
+	prev=q[prev].qprev;
+//	kprintf("Number of process in ready queue %d \n",num);
+	}
+	
+if(optr->quantum==0 && flag==0&& maxgoodness==0)
+	{	
+//	kprintf("Reached new epoch   %d", optr->pprio);
+	maxgoodness=0;
+	struct pentry *n;
+	for (i = 0; i < NPROC; i++) {
+		n= &proctab[i];
+		if (n->pstate == PRFREE)
+		{n->counter=0;
+		n->quantum=0;}
+		else if (n->pstate==PRREADY || n->pstate==PRCURR){
+		n->goodness= n->pprio;
+		n->oldprio=n->pprio;
+		n->counter=1;
+		n->quantum=n->pprio;		
+		}
+		else{
+		n->goodness= n->pprio;
+		n->oldprio=n->pprio;
+		n->counter=0;
+		n->quantum=n->pprio+(n->quantum/2);
+		}
+		if (n->goodness > maxgoodness && n->counter!=0)
+                {
+                maxgoodness= n->goodness;
+		var= i;
+		}
+	}	
+	if (maxgoodness==0) {
+		if (currpid == NULLPROC) {
+			preempt=QUANTUM;
+			return OK;
+	}	}
+	else if (optr->goodness >maxgoodness && optr->pstate== PRCURR)         // current process is completed
+			{	
+				#ifdef RTCLOCK				
+				preempt=(optr->quantum/2)+ optr->pprio;
+				#endif 
+				optr->counter=1;
+				optr->quantum=optr->pprio;
+			//	kprintf("Current process is the highest process in new epoch %d \n ", optr->pprio);
+				return OK;
+			}
+	else  {          
+				if (optr->pstate==PRCURR)
+				{	optr->pstate = PRREADY;
+					optr->counter=1;
+					optr->quantum=optr->pprio;
+                			insert(currpid,rdyhead,optr->pprio);
+				}
+        			nptr = &proctab[ (currpid = getlast(q[var].qnext))];
+				nptr->pstate = PRCURR;
+				//nptr->goodness= floor(nptr->counter/2)+nptr->pprio;
+		                #ifdef  RTCLOCK
+                		preempt=(nptr->counter/2)+ nptr->pprio;             /* reset preemption counter     */
+               			#endif
+				nptr->quantum=preempt;
+				nptr->counter=1;
+			//kprintf("Context switch the to new process with higher priority %d \n",nptr->pprio);
+                		ctxsw((int)&optr->pesp, (int)optr->pirmask, (int)&nptr->pesp, (int)nptr->pirmask);
+                		return OK;
+			}
+	
+	}
+else  
+{
+	if (maxgoodness>optr->goodness)
+		{
+		if (optr->pstate== PRCURR)
+		{	optr->pstate = PRREADY;
+			optr->counter=1;
+			insert(currpid,rdyhead,optr->pprio);
+		}
+		nptr = &proctab[ (currpid =getlast(q[var].qnext)) ];
+                nptr->pstate = PRCURR;
+                #ifdef  RTCLOCK
+                preempt = nptr->quantum;              /* reset preemption counter     */
+                #endif
+		nptr->counter=1;
+		//kprintf("within same epoch eith new prioriry process %d \n",nptr->pprio);
+                ctxsw((int)&optr->pesp, (int)optr->pirmask, (int)&nptr->pesp, (int)nptr->pirmask);
+                return OK;
+		}
+	else if (optr->goodness > maxgoodness && optr->quantum>0 && optr->pstate==PRCURR)
+		{
+		preempt= optr->quantum;
+		optr->counter=1;
+	//	kprintf("Current process is the high prioiry process within same epoch %d \n",optr->pprio);
+		return OK;
+		}
+	else if (optr->goodness > maxgoodness && optr->quantum==0)
+		{
+		if (optr->pstate== PRCURR)
+                {	optr->pstate = PRREADY;
+			optr->counter=0;
+                	insert(currpid,rdyhead,optr->pprio);
+		}
+                                nptr = &proctab[ (currpid =getlast(q[var].qnext)) ];
+                                nptr->pstate = PRCURR;
+                                //nptr->goodness= floor(nptr->counter/2)+nptr->pprio
+                                #ifdef  RTCLOCK
+                                preempt = nptr->quantum;              /* reset preemption counter     */
+                                 #endif
+				nptr->counter=1;
+	//	kprintf("Within same epoch with current process exhausted. chooseing new process %d \n",nptr->pprio);
+                                ctxsw((int)&optr->pesp, (int)optr->pirmask, (int)&nptr->pesp, (int)nptr->pirmask);
+				
+                                return OK;
+		}
+	else 
+	{
+	if (maxgoodness==0) {
+                if (currpid == NULLPROC) {
+			preempt= QUANTUM;
+                        return OK;
+        }       }
+
+	}
+
+}
+}

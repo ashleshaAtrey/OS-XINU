@@ -1,0 +1,17 @@
+
+# include<stdio.h>
+extern int etext, edata, end,sp;
+void printsegaddress()
+{
+kprintf("The address at end of test is 0x%x \n", &etext);
+kprintf("The address at end of data is 0x%x \n", &edata);
+kprintf("The address at end of end is 0x%x \n", &end);
+kprintf("The value at address preceding end of text is 0x%x \n", *(&etext-1));
+kprintf("The value at address after end of text is 0x%x \n", *(&etext+1));
+kprintf("The value at address preceding end of data is 0x%x \n", *(&edata-1));
+kprintf("The value at address after end of data is 0x%x \n", *(&edata+1));
+kprintf("The value at address preceding end of end is 0x%x \n", *(&end-1));
+kprintf("The value at address after end of end is 0x%x \n", *(&end+1));
+kprintf("The address of stack pointer is 0x%x \n", &sp);
+}
+
